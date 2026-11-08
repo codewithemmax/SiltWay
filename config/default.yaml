@@ -65,7 +65,7 @@ rainfall:
   grid_step_deg: 0.5
   scale_percentile: 95.0
   eps: 1.0e-6
-  as_of_default: null
+  as_of_default: "2022-10-08"
 
 evaluation:
   n_pairs: 200
