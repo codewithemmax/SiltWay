@@ -99,14 +99,15 @@ def _open_shapefile_bytes(spec_path: str | Path) -> tuple[bytes, bytes, bytes]:
             member_parts = [shp_candidates[0]]
 
     for idx, part in enumerate(member_parts):
+        part_norm = part.replace("\\", "/")
         with zipfile.ZipFile(io.BytesIO(current_bytes), "r") as zf:
             if idx < len(member_parts) - 1:
-                current_bytes = zf.read(part)
+                current_bytes = zf.read(part_norm)
             else:
                 namelist = zf.namelist()
-                shp_name = next((n for n in namelist if n.lower() == part.lower()), None)
+                shp_name = next((n for n in namelist if n.lower() == part_norm.lower()), None)
                 if shp_name is None:
-                    raise FileNotFoundError(f"Layer {part} not found in {raw_spec}")
+                    raise FileNotFoundError(f"Layer {part_norm} not found in {raw_spec}")
                 base = shp_name[:-4].lower()
                 shx_name = next(n for n in namelist if n.lower() == f"{base}.shx")
                 dbf_name = next(n for n in namelist if n.lower() == f"{base}.dbf")

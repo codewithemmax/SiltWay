@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import networkx as nx
 import numpy as np
 
@@ -20,6 +22,10 @@ def compute_edge_weight(
         raise ValueError(f"alpha ({alpha}) and beta ({beta}) must be non-negative.")
 
     weights = length_km * (1.0 + alpha * flood_frac + beta * rain_idx)
+    if isinstance(weights, (int, float)):
+        if not math.isfinite(weights) or weights < 0.0:
+            raise ValueError("Computed edge weights must be finite and non-negative.")
+        return float(weights)
     if np.any(~np.isfinite(weights)) or np.any(weights < 0.0):
         raise ValueError("Computed edge weights must be finite and non-negative.")
     return weights

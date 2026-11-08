@@ -52,8 +52,8 @@ network:
   min_valid_geom_share: 0.99
 
 weights:
-  alpha: 3.0
-  beta: 1.0
+  alpha: 8.0
+  beta: 0.5
   alpha_min: 0.0
   alpha_max: 100.0
   beta_min: 0.0
