@@ -299,10 +299,13 @@ def build_flood_from_config(
         region_name=cfg.region.name,
         name_column=cfg.region.name_column or "adm1_name",
     )
-    flood_polys_2012 = load_flood_polygons(cfg.datasets.flood_2012.path, boundary)
-
     edges_df = load_edges_parquet(cfg.paths.edges_path)
     graph = load_graph_pickle(cfg.paths.graph_path)
+    existing_geom = graph.graph.get("flood_2012_geom")
+    if existing_geom is not None and not existing_geom.is_empty:
+        flood_polys_2012 = list(shapely.get_parts(existing_geom))
+    else:
+        flood_polys_2012 = load_flood_polygons(cfg.datasets.flood_2012.path, boundary)
     crs_info = graph.graph.get("crs", {})
     lon0 = crs_info.get("lon0")
     lat0 = crs_info.get("lat0")

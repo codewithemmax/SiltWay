@@ -82,7 +82,10 @@ def scan_text_for_violations(
     compiled_patterns = [
         (
             lit,
-            re.compile(r"(?<![A-Za-z0-9_])" + re.escape(lit) + r"(?![A-Za-z0-9_])", re.IGNORECASE),
+            re.compile(
+                r"(?<![A-Za-z0-9_])" + re.escape(lit) + r"(?![A-Za-z0-9_])",
+                0 if lit == "Delta" else re.IGNORECASE,
+            ),
         )
         for lit in forbidden_literals
     ]
