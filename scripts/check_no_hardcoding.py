@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -168,6 +169,17 @@ def scan_text_for_violations(
     return violations
 
 
+def _iter_non_ignored_files(base_dir: Path) -> list[Path]:
+    """Walk base_dir while pruning IGNORED_DIRS before descending into them."""
+    collected: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(base_dir):
+        dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
+        cur = Path(dirpath)
+        for fname in sorted(filenames):
+            collected.append(cur / fname)
+    return collected
+
+
 def scan_repository(
     repo_root: str | Path,
     forbidden_literals_path: str | Path | None = None,
@@ -187,11 +199,7 @@ def scan_repository(
         source_dir = root / source_dir_name
         if not source_dir.exists():
             continue
-        for file_path in sorted(source_dir.rglob("*")):
-            if not file_path.is_file():
-                continue
-            if any(part in IGNORED_DIRS for part in file_path.parts):
-                continue
+        for file_path in _iter_non_ignored_files(source_dir):
             if file_path.suffix.lower() not in SOURCE_EXTENSIONS:
                 continue
             text = file_path.read_text(encoding="utf-8")
@@ -206,11 +214,7 @@ def scan_repository(
                 )
             )
 
-    for file_path in sorted(root.rglob("*")):
-        if not file_path.is_file():
-            continue
-        if any(part in IGNORED_DIRS for part in file_path.parts):
-            continue
+    for file_path in _iter_non_ignored_files(root):
         if file_path.resolve() == lit_path:
             continue
         if file_path.suffix.lower() in DOC_EXTENSIONS:
