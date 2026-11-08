@@ -1,0 +1,54 @@
+# Forbidden literals in source code (outside config/ and tests/).
+# Place names, Nigerian states, major cities, and explicit UTM EPSG codes.
+Abia
+Adamawa
+Akwa Ibom
+Anambra
+Bauchi
+Bayelsa
+Benue
+Borno
+Cross River
+Delta
+Ebonyi
+Edo
+Ekiti
+Enugu
+Gombe
+Imo
+Jigawa
+Kaduna
+Kano
+Katsina
+Kebbi
+Kogi
+Kwara
+Lagos
+Nasarawa
+Niger
+Ogun
+Ondo
+Osun
+Oyo
+Plateau
+Rivers
+Sokoto
+Taraba
+Yobe
+Zamfara
+FCT
+Abuja
+Lokoja
+Port Harcourt
+Ibadan
+Maiduguri
+Onitsha
+Makurdi
+Yenagoa
+Asaba
+EPSG:32631
+EPSG:32632
+EPSG:32633
+32631
+32632
+32633

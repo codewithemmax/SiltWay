@@ -1,0 +1,79 @@
+project_name: "flood-router"
+
+region:
+  name: null
+  boundary_file: "data/raw/nga_admin_boundaries.shp.zip!nga_admin1.shp"
+  name_column: "adm1_name"
+
+datasets:
+  roads:
+    path: "data/raw/grid3_nga_roads.zip"
+    url: "https://academiccommons.columbia.edu/doi/10.7916/b42r-6w17"
+    fallback_url: "https://data.humdata.org/dataset/fa359dc7-c3e4-4ed9-9d51-0bf609c20e06"
+    license: "CC BY 4.0"
+    road_class_column: "road_class"
+    unknown_class_value: "unknown"
+  flood_2012:
+    path: "data/raw/nga-floods-2012-shp.zip!NGA_Flood_Modis_250_nasa.shp"
+    url: "https://data.humdata.org/dataset/bd3b4ef6-0a96-4346-b229-2c410d9c6c6d"
+    license: "CC BY-IGO"
+  flood_2022:
+    path: "data/raw/FL20221019NGA_SHP.zip!FL20221019NGA_SHP/VIIRS_20221001_20221025_MaximumFloodWaterExtent_Nigeria.shp"
+    url: "https://data.humdata.org/dataset/7d978dcf-afa9-454e-8eaa-d9e54458f44e"
+    license: "CC BY-IGO"
+  boundaries:
+    path: "data/raw/nga_admin_boundaries.shp.zip!nga_admin1.shp"
+    url: "https://data.humdata.org/dataset/cod-ab-nga"
+    license: "CC BY-IGO"
+  rainfall:
+    parameter: "PRECTOTCORR"
+    units: "mm/day"
+    docs_url: "https://power.larc.nasa.gov/docs/services/api/"
+    api_base_url: "https://power.larc.nasa.gov/api/temporal/daily/point"
+    raw_cache_dir: "data/raw/power"
+
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  manifest_path: "data/processed/manifest.json"
+  edges_path: "data/processed/edges.parquet"
+  graph_path: "data/processed/graph.pkl"
+  results_dir: "results"
+  results_json: "results/results.json"
+
+crs:
+  storage: "EPSG:4326"
+  projected: "auto_utm"
+
+network:
+  snap_tolerance_m: 5.0
+  keep_largest_component: true
+  include_unknown_roads: true
+  min_valid_geom_share: 0.99
+
+weights:
+  alpha: 3.0
+  beta: 1.0
+  alpha_min: 0.0
+  alpha_max: 100.0
+  beta_min: 0.0
+  beta_max: 100.0
+
+rainfall:
+  window_days: 7
+  climatology_years: 10
+  grid_step_deg: 0.5
+  scale_percentile: 95.0
+  eps: 1.0e-6
+  as_of_default: null
+
+evaluation:
+  n_pairs: 200
+  min_trip_km: 20.0
+  seed: 42
+  alpha_grid: [0.0, 1.0, 2.0, 4.0, 8.0]
+  beta_grid: [0.0, 0.5, 1.0, 2.0]
+
+service:
+  max_snap_distance_m: 2000.0
+  flood_simplify_tolerance_deg: 0.001

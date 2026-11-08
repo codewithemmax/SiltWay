@@ -1,0 +1,1 @@
+"""FastAPI routing service package."""
