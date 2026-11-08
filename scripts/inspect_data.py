@@ -6,6 +6,7 @@ import argparse
 import csv
 import io
 import json
+import struct
 import sys
 import zipfile
 from pathlib import Path
@@ -69,6 +70,8 @@ def discover_datasets(raw_dir: Path) -> list[Path]:
     for path in sorted(raw_dir.rglob("*")):
         if not path.is_file():
             continue
+        if "extracted_roads" in path.parts:
+            continue
         if path.suffix.lower() in VECTOR_EXTENSIONS:
             found.append(path)
     return found
@@ -129,58 +132,97 @@ def _inspect_shp_file(file_path: Path, rel_name: str) -> dict[str, Any]:
         )
 
 
-def _inspect_zip_archive(file_path: Path, rel_name: str) -> list[dict[str, Any]]:
-    """Inspect all .shp layers or nested .csv tables inside a .zip archive."""
-    checksum = compute_sha256(file_path)
+def _inspect_zip_bytes(
+    zf: zipfile.ZipFile,
+    prefix: str,
+    checksum: str,
+) -> list[dict[str, Any]]:
+    """Recursively inspect all .shp layers or .csv tables inside an open ZipFile."""
     results: list[dict[str, Any]] = []
-    with zipfile.ZipFile(file_path, "r") as zf:
-        namelist = zf.namelist()
-        shp_names = sorted(n for n in namelist if n.lower().endswith(".shp"))
-        for shp_name in shp_names:
-            base = shp_name[:-4]
-            dbf_match = next((n for n in namelist if n.lower() == f"{base.lower()}.dbf"), None)
-            shx_match = next((n for n in namelist if n.lower() == f"{base.lower()}.shx"), None)
-            prj_match = next((n for n in namelist if n.lower() == f"{base.lower()}.prj"), None)
-            prj_text = (
-                zf.read(prj_match).decode("utf-8", errors="replace") if prj_match else ""
-            )
-            shp_bytes = io.BytesIO(zf.read(shp_name))
-            dbf_bytes = io.BytesIO(zf.read(dbf_match)) if dbf_match else None
-            shx_bytes = io.BytesIO(zf.read(shx_match)) if shx_match else None
-            with shapefile.Reader(shp=shp_bytes, dbf=dbf_bytes, shx=shx_bytes) as sf:
-                results.append(
-                    _inspect_shapefile_reader(
-                        sf=sf,
-                        prj_text=prj_text,
-                        rel_name=f"{rel_name}::{shp_name}",
-                        checksum=checksum,
-                    )
-                )
+    namelist = zf.namelist()
+    shp_names = sorted(n for n in namelist if n.lower().endswith(".shp"))
+    for shp_name in shp_names:
+        base = shp_name[:-4]
+        dbf_match = next((n for n in namelist if n.lower() == f"{base.lower()}.dbf"), None)
+        shx_match = next((n for n in namelist if n.lower() == f"{base.lower()}.shx"), None)
+        prj_match = next((n for n in namelist if n.lower() == f"{base.lower()}.prj"), None)
+        prj_text = (
+            zf.read(prj_match).decode("utf-8", errors="replace") if prj_match else ""
+        )
+        with zf.open(shp_name) as shp_f:
+            shp_header_bytes = shp_f.read(100)
+        shx_raw = zf.read(shx_match) if shx_match else b""
+        row_count = max(0, (len(shx_raw) - 100) // 8) if len(shx_raw) >= 100 else 0
+        if len(shp_header_bytes) >= 68:
+            stype, xmin, ymin, xmax, ymax = struct.unpack_from("<i4d", shp_header_bytes, 32)
+            geom_type = SHAPE_TYPE_MAP.get(stype, f"ShapeType({stype})")
+            bounds = [float(xmin), float(ymin), float(xmax), float(ymax)] if row_count > 0 else []
+        else:
+            geom_type = "Unknown"
+            bounds = []
 
-        if not shp_names:
-            nested_zips = sorted(n for n in namelist if n.lower().endswith(".zip"))
-            for nz_name in nested_zips:
-                with zipfile.ZipFile(io.BytesIO(zf.read(nz_name)), "r") as nzf:
-                    for csv_name in sorted(n for n in nzf.namelist() if n.lower().endswith(".csv")):
-                        with nzf.open(csv_name, "r") as raw_csv:
-                            text_stream = io.TextIOWrapper(
-                                raw_csv, encoding="utf-8", errors="replace"
-                            )
-                            reader = csv.reader(text_stream)
-                            header = next(reader, [])
-                            row_count = sum(1 for _ in reader)
-                        results.append(
-                            {
-                                "file": f"{rel_name}::{nz_name}::{csv_name}",
-                                "checksum": checksum,
-                                "crs": "None (Tabular CSV without geometry)",
-                                "row_count": row_count,
-                                "columns_dtypes": {col: "str (CSV column)" for col in header},
-                                "geometry_types": {"None": row_count},
-                                "bounds": [],
-                            }
-                        )
+        columns_dtypes: dict[str, str] = {}
+        if dbf_match:
+            with zf.open(dbf_match) as dbf_f:
+                dbf_header = io.BytesIO(dbf_f.read(65536))
+            with shapefile.Reader(dbf=dbf_header) as sf:
+                for field in sf.fields[1:]:
+                    fname = str(field[0])
+                    ftype = str(field[1])
+                    columns_dtypes[fname] = FIELD_TYPE_MAP.get(ftype, ftype)
+        columns_dtypes["geometry"] = "geometry"
+
+        results.append(
+            {
+                "file": f"{prefix}::{shp_name}",
+                "checksum": checksum,
+                "crs": _parse_prj_crs(prj_text),
+                "row_count": row_count,
+                "columns_dtypes": columns_dtypes,
+                "geometry_types": {geom_type: row_count} if row_count > 0 else {},
+                "bounds": bounds,
+            }
+        )
+
+    nested_zips = sorted(n for n in namelist if n.lower().endswith(".zip"))
+    for nz_name in nested_zips:
+        with zipfile.ZipFile(io.BytesIO(zf.read(nz_name)), "r") as nzf:
+            results.extend(
+                _inspect_zip_bytes(
+                    zf=nzf,
+                    prefix=f"{prefix}::{nz_name}",
+                    checksum=checksum,
+                )
+            )
+
+    if not shp_names and not nested_zips:
+        for csv_name in sorted(n for n in namelist if n.lower().endswith(".csv")):
+            with zf.open(csv_name, "r") as raw_csv:
+                text_stream = io.TextIOWrapper(
+                    raw_csv, encoding="utf-8", errors="replace"
+                )
+                reader = csv.reader(text_stream)
+                header = next(reader, [])
+                row_count = sum(1 for _ in reader)
+            results.append(
+                {
+                    "file": f"{prefix}::{csv_name}",
+                    "checksum": checksum,
+                    "crs": "None (Tabular CSV without geometry)",
+                    "row_count": row_count,
+                    "columns_dtypes": {col: "str (CSV column)" for col in header},
+                    "geometry_types": {"None": row_count},
+                    "bounds": [],
+                }
+            )
     return results
+
+
+def _inspect_zip_archive(file_path: Path, rel_name: str) -> list[dict[str, Any]]:
+    """Inspect all .shp layers or nested .zip/.csv tables inside a .zip archive."""
+    checksum = compute_sha256(file_path)
+    with zipfile.ZipFile(file_path, "r") as zf:
+        return _inspect_zip_bytes(zf=zf, prefix=rel_name, checksum=checksum)
 
 
 def _inspect_geojson_fallback(file_path: Path, rel_name: str) -> dict[str, Any]:

@@ -11,9 +11,9 @@ from floodrouter.config import load_config
 
 
 def test_default_config_fails_when_region_missing() -> None:
-    """Loading config/default.yaml without setting region.name must fail clearly."""
+    """Loading config with region.name set to None must fail clearly."""
     with pytest.raises(ValidationError) as exc_info:
-        load_config("config/default.yaml")
+        load_config("config/default.yaml", overrides={"region": {"name": None}})
     error_text = str(exc_info.value)
     assert "region" in error_text
     assert "name" in error_text

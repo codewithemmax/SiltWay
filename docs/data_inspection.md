@@ -356,75 +356,80 @@
   - `SHAPE_Area`: `float (Float)`
   - `geometry`: `geometry`
 
-## Dataset: `national-roads-csv.zip::national-road.zip::road.csv`
+## Dataset: `national-roads-esri-shapefile.zip::national-road.zip::road.zip::u_fe_road.shp`
 
-- **SHA-256 Checksum**: `a9bb6e6dbdb8ac4e7301d6faf99b28c3f2f3772e1af9e8affc6c380ce725477d`
-- **CRS**: `None (Tabular CSV without geometry)`
+- **SHA-256 Checksum**: `d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749`
+- **CRS**: `EPSG:4326 (WGS 84 Geographic)`
 - **Row Count**: 468407
-- **Geometry Types**: `{'None': 468407}`
-- **Bounds (minx, miny, maxx, maxy)**: `[]`
+- **Geometry Types**: `{'LineString': 468407}`
+- **Bounds (minx, miny, maxx, maxy)**: `[2.746230067419182, 4.4715416, 14.6500389815856, 13.9052234]`
 - **Columns and Dtypes**:
-  - `state_code`: `str (CSV column)`
-  - `source`: `str (CSV column)`
-  - `name`: `str (CSV column)`
-  - `surface_type`: `str (CSV column)`
-  - `smoothness`: `str (CSV column)`
-  - `one_way`: `str (CSV column)`
-  - `osm_class`: `str (CSV column)`
-  - `road_class`: `str (CSV column)`
-  - `global_id`: `str (CSV column)`
+  - `state_code`: `str (Character)`
+  - `source`: `str (Character)`
+  - `name`: `str (Character)`
+  - `surface_ty`: `str (Character)`
+  - `smoothness`: `str (Character)`
+  - `one_way`: `bool (Logical)`
+  - `osm_class`: `str (Character)`
+  - `road_class`: `str (Character)`
+  - `global_id`: `str (Character)`
+  - `geometry`: `geometry`
 
-## Dataset: `national-roads-csv.zip::national-roads-major.zip::roads-major.csv`
+## Dataset: `national-roads-esri-shapefile.zip::national-roads-major.zip::roads-major.zip::u_fe_roads_major.shp`
 
-- **SHA-256 Checksum**: `a9bb6e6dbdb8ac4e7301d6faf99b28c3f2f3772e1af9e8affc6c380ce725477d`
-- **CRS**: `None (Tabular CSV without geometry)`
+- **SHA-256 Checksum**: `d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749`
+- **CRS**: `EPSG:4326 (WGS 84 Geographic)`
 - **Row Count**: 5426
-- **Geometry Types**: `{'None': 5426}`
-- **Bounds (minx, miny, maxx, maxy)**: `[]`
+- **Geometry Types**: `{'LineString': 5426}`
+- **Bounds (minx, miny, maxx, maxy)**: `[3.620546920000038, 9.48652000006382, 12.217099998000037, 13.774599999000031]`
 - **Columns and Dtypes**:
-  - `state_code`: `str (CSV column)`
-  - `source`: `str (CSV column)`
-  - `name`: `str (CSV column)`
-  - `global_id`: `str (CSV column)`
+  - `state_code`: `str (Character)`
+  - `source`: `str (Character)`
+  - `name`: `str (Character)`
+  - `global_id`: `str (Character)`
+  - `geometry`: `geometry`
 
-## Dataset: `national-roads-csv.zip::national-roads-residential.zip::roads-residential.csv`
+## Dataset: `national-roads-esri-shapefile.zip::national-roads-residential.zip::roads-residential.zip::u_fe_roads_residential.shp`
 
-- **SHA-256 Checksum**: `a9bb6e6dbdb8ac4e7301d6faf99b28c3f2f3772e1af9e8affc6c380ce725477d`
-- **CRS**: `None (Tabular CSV without geometry)`
+- **SHA-256 Checksum**: `d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749`
+- **CRS**: `EPSG:4326 (WGS 84 Geographic)`
 - **Row Count**: 37277
-- **Geometry Types**: `{'None': 37277}`
-- **Bounds (minx, miny, maxx, maxy)**: `[]`
+- **Geometry Types**: `{'LineString': 37277}`
+- **Bounds (minx, miny, maxx, maxy)**: `[3.6076152730000217, 9.75474000025639, 12.371599998000022, 13.860900000000072]`
 - **Columns and Dtypes**:
-  - `state_code`: `str (CSV column)`
-  - `source`: `str (CSV column)`
-  - `name`: `str (CSV column)`
-  - `global_id`: `str (CSV column)`
+  - `state_code`: `str (Character)`
+  - `source`: `str (Character)`
+  - `name`: `str (Character)`
+  - `global_id`: `str (Character)`
+  - `geometry`: `geometry`
 
-## Dataset: `national-roads-csv.zip::national-roads-tertiary.zip::roads-tertiary.csv`
+## Dataset: `national-roads-esri-shapefile.zip::national-roads-tertiary.zip::roads-tertiary.zip::u_fe_roads_tertiary.shp`
 
-- **SHA-256 Checksum**: `a9bb6e6dbdb8ac4e7301d6faf99b28c3f2f3772e1af9e8affc6c380ce725477d`
-- **CRS**: `None (Tabular CSV without geometry)`
+- **SHA-256 Checksum**: `d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749`
+- **CRS**: `EPSG:4326 (WGS 84 Geographic)`
 - **Row Count**: 184035
-- **Geometry Types**: `{'None': 184035}`
-- **Bounds (minx, miny, maxx, maxy)**: `[]`
+- **Geometry Types**: `{'LineString': 184035}`
+- **Bounds (minx, miny, maxx, maxy)**: `[3.5007178190000445, 9.498505920055493, 12.32339999800007, 13.894699998000021]`
 - **Columns and Dtypes**:
-  - `state_code`: `str (CSV column)`
-  - `source`: `str (CSV column)`
-  - `name`: `str (CSV column)`
-  - `global_id`: `str (CSV column)`
+  - `state_code`: `str (Character)`
+  - `source`: `str (Character)`
+  - `name`: `str (Character)`
+  - `global_id`: `str (Character)`
+  - `geometry`: `geometry`
 
-## Dataset: `national-roads-csv.zip::national-roads-track.zip::roads-track.csv`
+## Dataset: `national-roads-esri-shapefile.zip::national-roads-track.zip::roads-track.zip::u_fe_roads_track.shp`
 
-- **SHA-256 Checksum**: `a9bb6e6dbdb8ac4e7301d6faf99b28c3f2f3772e1af9e8affc6c380ce725477d`
-- **CRS**: `None (Tabular CSV without geometry)`
+- **SHA-256 Checksum**: `d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749`
+- **CRS**: `EPSG:4326 (WGS 84 Geographic)`
 - **Row Count**: 6024
-- **Geometry Types**: `{'None': 6024}`
-- **Bounds (minx, miny, maxx, maxy)**: `[]`
+- **Geometry Types**: `{'LineString': 6024}`
+- **Bounds (minx, miny, maxx, maxy)**: `[3.5542089550000355, 10.673400000000072, 12.453899998000054, 13.857500002000052]`
 - **Columns and Dtypes**:
-  - `state_code`: `str (CSV column)`
-  - `source`: `str (CSV column)`
-  - `name`: `str (CSV column)`
-  - `global_id`: `str (CSV column)`
+  - `state_code`: `str (Character)`
+  - `source`: `str (Character)`
+  - `name`: `str (Character)`
+  - `global_id`: `str (Character)`
+  - `geometry`: `geometry`
 
 ## Dataset: `nga-floods-2012-shp.zip::NGA_Flood_Modis_250_nasa.shp`
 

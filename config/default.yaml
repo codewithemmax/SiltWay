@@ -1,13 +1,13 @@
 project_name: "flood-router"
 
 region:
-  name: null
+  name: "Kogi"
   boundary_file: "data/raw/nga_admin_boundaries.shp.zip!nga_admin1.shp"
   name_column: "adm1_name"
 
 datasets:
   roads:
-    path: "data/raw/grid3_nga_roads.zip"
+    path: "data/raw/national-roads-esri-shapefile.zip!national-road.zip!road.zip!u_fe_road.shp"
     url: "https://academiccommons.columbia.edu/doi/10.7916/b42r-6w17"
     fallback_url: "https://data.humdata.org/dataset/fa359dc7-c3e4-4ed9-9d51-0bf609c20e06"
     license: "CC BY 4.0"
