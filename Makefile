@@ -16,4 +16,6 @@ check: lint test hardcode-check
 inspect:
 	$(PYTHON) scripts/inspect_data.py
 
-reproduce: inspect check
+reproduce:
+	$(PYTHON) scripts/reproduce.py
+	$(PYTHON) scripts/check_no_hardcoding.py

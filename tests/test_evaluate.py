@@ -14,6 +14,7 @@ from floodrouter.evaluate import (
 )
 from floodrouter.ingest import _open_shapefile_bytes
 from floodrouter.network import load_graph_pickle
+from scripts.generate_readme import generate_readme
 
 
 def test_open_shapefile_bytes_normalizes_backslashes() -> None:
@@ -109,3 +110,14 @@ def test_results_json_and_reproducibility() -> None:
     assert "include_unknown_true" in saved_1["connector_road_comparison"]
     assert "include_unknown_false" in saved_1["connector_road_comparison"]
     assert len(saved_1["demo_scenarios"]) == 10
+
+
+def test_readme_matches_results_json_exactly() -> None:
+    """README.md is generated deterministically from results/results.json and manifest.json."""
+    readme_path = Path("README.md")
+    before = readme_path.read_text(encoding="utf-8")
+    generate_readme()
+    after = readme_path.read_text(encoding="utf-8")
+    assert before == after
+    assert "coarse satellite surface water detection, not road-level inundation" in after
+    assert "avoidance of known historical flood zones" in after
