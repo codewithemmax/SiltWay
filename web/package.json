@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun ./node_modules/next/dist/bin/next dev",
-    "build": "bun ./node_modules/typescript/bin/tsc --noEmit && bun build ./src/app/page.tsx --outdir ./.next/bundle --target browser",
-    "next-build": "bun ./node_modules/next/dist/bin/next build",
-    "start": "bun ./node_modules/next/dist/bin/next start",
+    "dev": "bun run server.ts",
+    "build": "bun ./node_modules/typescript/bin/tsc --noEmit && bun build ./src/client.tsx --outdir ./.next/bundle --target browser",
+    "start": "bun run server.ts",
     "typecheck": "bun ./node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
