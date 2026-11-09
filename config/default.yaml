@@ -77,3 +77,46 @@ evaluation:
 service:
   max_snap_distance_m: 2000.0
   flood_simplify_tolerance_deg: 0.001
+  max_batch_pairs: 50
+
+# Routing presets shown as buttons in the dispatch console. The UI renders this
+# list as given. One preset must match weights.alpha and weights.beta exactly.
+presets:
+  - id: "standard"
+    label: "Standard shortest"
+    alpha: 0.0
+    beta: 0.0
+  - id: "balanced"
+    label: "Balanced (evaluated default)"
+    alpha: 8.0
+    beta: 0.5
+  - id: "strong_avoid"
+    label: "Strong flood avoidance"
+    alpha: 32.0
+    beta: 0.5
+
+ui:
+  default_preset_id: "balanced"
+  max_acceptable_detour_pct: 5.0
+  flood_tolerance_km: 0.05
+  roads_layer_path: "data/processed/roads_layer.parquet"
+  roads_simplify_tolerance_deg: 0.0005
+  roads_max_features: 1500
+  # The entry with the largest min_zoom not above the requested zoom is used.
+  # Class order is also the priority order when the feature cap is hit.
+  road_classes_by_zoom:
+    - min_zoom: 0
+      classes: ["Highway", "Major Road"]
+    - min_zoom: 9
+      classes: ["Highway", "Major Road", "Tertiary"]
+    - min_zoom: 11
+      classes: ["Highway", "Major Road", "Tertiary", "Residential", "Tracks", "unknown"]
+  as_of_selection:
+    # Supported rule_id values: regional_mean_recent_mm_extremes, regional_mean_rain_idx_extremes.
+    # rain_idx is an anomaly relative to the same week in prior years, so in the dry
+    # season a few mm can score 1.0. Absolute recent rainfall is used to pick the dates.
+    rule_id: "regional_mean_recent_mm_extremes"
+    description: "Candidate dates run every step_days days from start_date to end_date. For each candidate we take the rainfall over the preceding window_days days, averaged over the rainfall grid cells. The wet date has the highest regional mean rainfall, the dry date has the lowest. Ties go to the earliest date."
+    start_date: "2022-01-01"
+    end_date: "2022-10-08"
+    step_days: 7

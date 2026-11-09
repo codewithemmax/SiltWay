@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import networkx as nx
@@ -198,6 +199,147 @@ def compute_route_delta(
     }
 
 
+def compute_route_recommendation(
+    baseline_length_km: float,
+    baseline_flood_km: float,
+    resilient_length_km: float,
+    resilient_flood_km: float,
+    flood_tolerance_km: float,
+    max_acceptable_detour_pct: float,
+) -> dict[str, Any]:
+    """Classify a baseline versus resilient comparison into a dispatch status.
+
+    Statuses:
+      clear: baseline crosses no mapped flood zone.
+      recommended: resilient flood_km is lower by more than flood_tolerance_km and
+        the extra distance is within max_acceptable_detour_pct.
+      trade_off: resilient flood_km is lower by more than flood_tolerance_km but
+        the extra distance exceeds max_acceptable_detour_pct.
+      no_better_route: baseline is flooded and the resilient route is not lower
+        beyond flood_tolerance_km.
+    """
+    extra_distance_km = resilient_length_km - baseline_length_km
+    if baseline_length_km > 0.0:
+        extra_distance_pct = (extra_distance_km / baseline_length_km) * 100.0
+    else:
+        extra_distance_pct = 0.0
+    avoided_flood_km = baseline_flood_km - resilient_flood_km
+
+    if baseline_flood_km <= 0.0:
+        status = "clear"
+    elif resilient_flood_km < baseline_flood_km - flood_tolerance_km:
+        status = "recommended" if extra_distance_pct <= max_acceptable_detour_pct else "trade_off"
+    else:
+        status = "no_better_route"
+
+    return {
+        "status": status,
+        "baseline_length_km": baseline_length_km,
+        "baseline_flood_km": baseline_flood_km,
+        "resilient_length_km": resilient_length_km,
+        "resilient_flood_km": resilient_flood_km,
+        "avoided_flood_km": avoided_flood_km,
+        "extra_distance_km": extra_distance_km,
+        "extra_distance_pct": extra_distance_pct,
+        "flood_tolerance_km": flood_tolerance_km,
+        "max_acceptable_detour_pct": max_acceptable_detour_pct,
+    }
+
+
+def extract_flooded_segments(
+    graph: nx.Graph,
+    node_path: list[int],
+    flood_attr: str = "flood_frac",
+) -> dict[str, Any]:
+    """Return a GeoJSON FeatureCollection of route edges with a positive flood fraction."""
+    features: list[dict[str, Any]] = []
+    for idx in range(len(node_path) - 1):
+        u = node_path[idx]
+        v = node_path[idx + 1]
+        edata = graph.edges[u, v]
+        f_val = float(edata.get(flood_attr, 0.0))
+        if f_val <= 0.0:
+            continue
+        len_km = float(edata.get("length_km", float(edata["length_m"]) / float(METERS_PER_KM)))
+        geom = edata.get("geometry")
+        if geom is None or geom.is_empty:
+            geom = LineString(
+                [
+                    (float(graph.nodes[u]["lon"]), float(graph.nodes[u]["lat"])),
+                    (float(graph.nodes[v]["lon"]), float(graph.nodes[v]["lat"])),
+                ]
+            )
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "edge_id": int(edata.get("edge_id", -1)),
+                    "length_km": len_km,
+                    "flood_frac": f_val,
+                    "flood_km": len_km * f_val,
+                },
+                "geometry": mapping(geom),
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _bearing_degrees(start: tuple[float, float], end: tuple[float, float]) -> float:
+    """Return the forward bearing for two longitude/latitude points."""
+    lon1, lat1 = (math.radians(value) for value in start)
+    lon2, lat2 = (math.radians(value) for value in end)
+    delta_lon = lon2 - lon1
+    bearing = math.degrees(
+        math.atan2(
+            math.sin(delta_lon) * math.cos(lat2),
+            math.cos(lat1) * math.sin(lat2)
+            - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon),
+        )
+    )
+    return (bearing + 360.0) % 360.0
+
+
+def build_route_steps(
+    graph: nx.Graph,
+    node_path: list[int],
+    flood_attr: str = "flood_frac",
+) -> list[dict[str, Any]]:
+    """Describe each mapped road segment in a route using stored geometry."""
+    steps: list[dict[str, Any]] = []
+    previous_bearing: float | None = None
+    for index in range(len(node_path) - 1):
+        u, v = node_path[index], node_path[index + 1]
+        edge = graph.edges[u, v]
+        start = (float(graph.nodes[u]["lon"]), float(graph.nodes[u]["lat"]))
+        end = (float(graph.nodes[v]["lon"]), float(graph.nodes[v]["lat"]))
+        bearing = _bearing_degrees(start, end)
+        if previous_bearing is None:
+            instruction = "Start on the mapped road segment."
+        else:
+            delta = (bearing - previous_bearing + 540) % 360 - 180
+            if abs(delta) < 30:
+                instruction = "Continue on the mapped road segment."
+            elif delta > 0.0:
+                instruction = "Turn right onto the mapped road segment."
+            else:
+                instruction = "Turn left onto the mapped road segment."
+        length_km = float(edge.get("length_km", edge["length_m"] / METERS_PER_KM))
+        flood_km = length_km * float(edge.get(flood_attr, 0.0))
+        steps.append(
+            {
+                "step": index + 1,
+                "instruction": instruction,
+                "road_label": "Mapped road segment",
+                "start": {"lat": start[1], "lon": start[0]},
+                "end": {"lat": end[1], "lon": end[0]},
+                "length_km": length_km,
+                "flood_km": flood_km,
+            }
+        )
+        previous_bearing = bearing
+    return steps
+
+
 def route_between_nodes(
     graph: nx.Graph,
     origin_node: int,
@@ -300,6 +442,8 @@ def compare_routes(
             "weighted_cost": base["weighted_cost"],
             "n_edges": base["n_edges"],
             "nodes": base["nodes"],
+            "flooded_segments": extract_flooded_segments(graph, base["nodes"], flood_attr),
+            "steps": build_route_steps(graph, base["nodes"], flood_attr),
         },
         "resilient": {
             "geometry": res["geometry"],
@@ -308,6 +452,8 @@ def compare_routes(
             "weighted_cost": res["weighted_cost"],
             "n_edges": res["n_edges"],
             "nodes": res["nodes"],
+            "flooded_segments": extract_flooded_segments(graph, res["nodes"], flood_attr),
+            "steps": build_route_steps(graph, res["nodes"], flood_attr),
         },
         "delta": result["delta"],
         "params": {

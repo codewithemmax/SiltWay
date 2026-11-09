@@ -5,18 +5,22 @@ import type {
   FloodFeatureCollection,
   GeoJSONGeometry,
   LatLon,
+  RoadFeatureCollection,
   RouteComparePayload
 } from "@/types/api";
 
 interface RouteMapProps {
   bbox: [number, number, number, number];
   floodLayer: FloodFeatureCollection | null;
+  roadsLayer: RoadFeatureCollection | null;
   origin: LatLon | null;
   destination: LatLon | null;
+  currentPosition: LatLon | null;
   routeData: RouteComparePayload | null;
   resilientMode: boolean;
   mapboxToken: string;
   onMapClick: (coord: LatLon) => void;
+  onMove?: (bbox: [number, number, number, number], zoom?: number) => void;
 }
 
 const VIEW_WIDTH = 1000;
@@ -114,12 +118,15 @@ function lineCoordsToSvgPoints(
 export default function RouteMap({
   bbox,
   floodLayer,
+  roadsLayer,
   origin,
   destination,
+  currentPosition,
   routeData,
   resilientMode,
   mapboxToken,
-  onMapClick
+  onMapClick,
+  onMove
 }: RouteMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<unknown>(null);
@@ -128,6 +135,7 @@ export default function RouteMap({
 
   const [mapboxReady, setMapboxReady] = useState<boolean>(false);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     if (!mapboxToken || !mapContainerRef.current) {
@@ -173,6 +181,13 @@ export default function RouteMap({
             lon: e.lngLat.lng
           });
         });
+        map.on("moveend", () => {
+          const bounds = map.getBounds();
+          onMove?.(
+            [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+            map.getZoom()
+          );
+        });
 
         mapInstanceRef.current = map;
       } catch {
@@ -192,7 +207,21 @@ export default function RouteMap({
       }
       mapInstanceRef.current = null;
     };
-  }, [mapboxToken, bbox]);
+  }, [mapboxToken, bbox, onMove]);
+
+  useEffect(() => {
+    const zoomIn = () => setZoom((value) => value + 1);
+    const zoomOut = () => setZoom((value) => Math.max(value - 1, 1));
+    const reset = () => setZoom(1);
+    window.addEventListener("map-zoom-in", zoomIn);
+    window.addEventListener("map-zoom-out", zoomOut);
+    window.addEventListener("map-reset", reset);
+    return () => {
+      window.removeEventListener("map-zoom-in", zoomIn);
+      window.removeEventListener("map-zoom-out", zoomOut);
+      window.removeEventListener("map-reset", reset);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mapboxReady || !mapInstanceRef.current) {
@@ -204,6 +233,13 @@ export default function RouteMap({
       addLayer: (spec: unknown) => void;
       setPaintProperty: (layer: string, prop: string, val: unknown) => void;
       getLayer: (id: string) => unknown;
+      getBounds: () => {
+        getWest: () => number;
+        getSouth: () => number;
+        getEast: () => number;
+        getNorth: () => number;
+      };
+      getZoom: () => number;
     };
 
     if (floodLayer && !map.getSource("flood-source")) {
@@ -220,6 +256,25 @@ export default function RouteMap({
           "fill-opacity": 1 / 2
         }
       });
+    }
+
+    if (roadsLayer && !map.getSource("roads-source")) {
+      map.addSource("roads-source", { type: "geojson", data: roadsLayer });
+      map.addLayer({
+        id: "roads-line",
+        type: "line",
+        source: "roads-source",
+        paint: {
+          "line-color": "#64748b",
+          "line-width": 1,
+          "line-opacity": 1.0
+        }
+      });
+    } else if (roadsLayer) {
+      const source = map.getSource("roads-source") as {
+        setData?: (data: unknown) => void;
+      } | null;
+      source?.setData?.(roadsLayer);
     }
 
     const baseGeojson = routeData
@@ -292,7 +347,7 @@ export default function RouteMap({
         resilientMode ? 1.0 : 1 / 2
       );
     }
-  }, [mapboxReady, floodLayer, routeData, resilientMode]);
+  }, [mapboxReady, floodLayer, roadsLayer, routeData, resilientMode]);
 
   const floodPaths = useMemo(() => {
     if (!floodLayer || !floodLayer.features) {
@@ -372,7 +427,7 @@ export default function RouteMap({
             y={0}
             width={VIEW_WIDTH}
             height={VIEW_HEIGHT}
-            fill="#0f172a"
+            fill="#eaf1f3"
           />
 
           <rect
@@ -380,12 +435,21 @@ export default function RouteMap({
             y={PADDING_PX}
             width={VIEW_WIDTH - PADDING_PX * 2}
             height={VIEW_HEIGHT - PADDING_PX * 2}
-            fill="#1e293b"
-            stroke="#334155"
+            fill="#f8fbfc"
+            stroke="#cbd9df"
             strokeWidth={2}
             rx={8}
           />
 
+          <g transform={`translate(${VIEW_WIDTH / 2} ${VIEW_HEIGHT / 2}) scale(${zoom}) translate(${-VIEW_WIDTH / 2} ${-VIEW_HEIGHT / 2})`}>
+          <g aria-label="Road network">
+            {(roadsLayer?.features || []).map((road, idx) => {
+              const coords = road.geometry.type === "LineString"
+                ? (road.geometry.coordinates as [number, number][])
+                : [];
+              return <polyline key={`road-${road.id ?? idx}`} points={lineCoordsToSvgPoints(coords, bbox)} fill="none" stroke="#64748b" strokeWidth={1} />;
+            })}
+          </g>
           <g aria-label="Historical flood extent polygons">
             {floodPaths.map((fp) => (
               <path
@@ -398,6 +462,18 @@ export default function RouteMap({
               />
             ))}
           </g>
+          {routeData?.baseline.flooded_segments?.features.map((feature, idx) => {
+            const coords = feature.geometry.type === "LineString"
+              ? (feature.geometry.coordinates as [number, number][])
+              : [];
+            return <polyline key={`base-flood-${feature.id ?? idx}`} points={lineCoordsToSvgPoints(coords, bbox)} fill="none" stroke="#f97316" strokeWidth={6} strokeOpacity={1.0} />;
+          })}
+          {routeData?.resilient.flooded_segments?.features.map((feature, idx) => {
+            const coords = feature.geometry.type === "LineString"
+              ? (feature.geometry.coordinates as [number, number][])
+              : [];
+            return <polyline key={`res-flood-${feature.id ?? idx}`} points={lineCoordsToSvgPoints(coords, bbox)} fill="none" stroke="#facc15" strokeWidth={5} strokeOpacity={1.0} />;
+          })}
 
           {resilientMode ? (
             <>
@@ -455,16 +531,17 @@ export default function RouteMap({
 
           {originXY ? (
             <g transform={`translate(${originXY[0]}, ${originXY[1]})`}>
-              <circle r={9} fill="#f8fafc" stroke="#0f172a" strokeWidth={3} />
+              <circle r={9} fill="#ffffff" stroke="#183247" strokeWidth={3} />
               <text
                 y={4}
                 textAnchor="middle"
                 fontSize={11}
                 fontWeight="bold"
-                fill="#0f172a"
+                fill="#183247"
               >
                 O
               </text>
+              <text x={14} y={-10} fontSize={14} fontWeight="bold" fill="#183247">Origin</text>
             </g>
           ) : null}
 
@@ -476,12 +553,22 @@ export default function RouteMap({
                 textAnchor="middle"
                 fontSize={11}
                 fontWeight="bold"
-                fill="#0f172a"
+                fill="#183247"
               >
                 D
               </text>
+              <text x={14} y={-10} fontSize={14} fontWeight="bold" fill="#fef08a">Destination</text>
             </g>
           ) : null}
+          {currentPosition ? (() => {
+            const point = projectLonLat(currentPosition.lon, currentPosition.lat, bbox);
+            return <g transform={`translate(${point[0]}, ${point[1]})`}>
+              <circle r={10} fill="#f8fafc" stroke="#1d4ed8" strokeWidth={4} />
+              <text y={4} textAnchor="middle" fontSize={10} fontWeight="bold" fill="#1d4ed8">You</text>
+              <text x={14} y={-10} fontSize={14} fontWeight="bold" fill="#bfdbfe">Current location</text>
+            </g>;
+          })() : null}
+          </g>
         </svg>
       ) : null}
 

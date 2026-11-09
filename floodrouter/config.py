@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RegionConfig(BaseModel):
@@ -157,6 +157,54 @@ class ServiceConfig(BaseModel):
 
     max_snap_distance_m: float = Field(..., gt=0)
     flood_simplify_tolerance_deg: float = Field(..., gt=0)
+    max_batch_pairs: int = Field(..., gt=0)
+
+
+class PresetConfig(BaseModel):
+    """Named alpha and beta weight preset rendered as a button in the UI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1)
+    alpha: float = Field(..., ge=0)
+    beta: float = Field(..., ge=0)
+
+
+class RoadZoomTierConfig(BaseModel):
+    """Road classes drawn at or above a given map zoom level."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_zoom: float = Field(..., ge=0)
+    classes: list[str] = Field(..., min_length=1)
+
+
+class AsOfSelectionConfig(BaseModel):
+    """Stated rule for picking the wet and dry as_of dates from rainfall data."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1)
+    start_date: str = Field(..., min_length=10, max_length=10)
+    end_date: str = Field(..., min_length=10, max_length=10)
+    step_days: int = Field(..., gt=0)
+
+
+class UIConfig(BaseModel):
+    """Dispatch console thresholds, layer caps, and date selection rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default_preset_id: str = Field(..., min_length=1)
+    max_acceptable_detour_pct: float = Field(..., ge=0)
+    flood_tolerance_km: float = Field(..., ge=0)
+    roads_layer_path: str = Field(..., min_length=1)
+    roads_simplify_tolerance_deg: float = Field(..., ge=0)
+    roads_max_features: int = Field(..., gt=0)
+    road_classes_by_zoom: list[RoadZoomTierConfig] = Field(..., min_length=1)
+    as_of_selection: AsOfSelectionConfig
 
 
 class AppConfig(BaseModel):
@@ -174,6 +222,26 @@ class AppConfig(BaseModel):
     rainfall: RainfallConfig
     evaluation: EvaluationConfig
     service: ServiceConfig
+    presets: list[PresetConfig] = Field(..., min_length=1)
+    ui: UIConfig
+
+    @model_validator(mode="after")
+    def _validate_presets(self) -> AppConfig:
+        ids = [p.id for p in self.presets]
+        if len(set(ids)) != len(ids):
+            raise ValueError("presets must have unique ids.")
+        w = self.weights
+        for p in self.presets:
+            if not (w.alpha_min <= p.alpha <= w.alpha_max):
+                raise ValueError(f"preset '{p.id}' alpha is outside weights bounds.")
+            if not (w.beta_min <= p.beta <= w.beta_max):
+                raise ValueError(f"preset '{p.id}' beta is outside weights bounds.")
+        default = next((p for p in self.presets if p.id == self.ui.default_preset_id), None)
+        if default is None:
+            raise ValueError("ui.default_preset_id must name an entry in presets.")
+        if default.alpha != w.alpha or default.beta != w.beta:
+            raise ValueError("The default preset must equal weights.alpha and weights.beta.")
+        return self
 
 
 def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:

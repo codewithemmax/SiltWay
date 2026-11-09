@@ -62,6 +62,21 @@ def test_flood_layer_endpoint(client: TestClient) -> None:
     assert first["geometry"]["type"] in ("Polygon", "MultiPolygon")
 
 
+def test_evidence_endpoint_serves_configured_results_and_figures(
+    client: TestClient,
+    shared_state: ServiceState,
+) -> None:
+    """GET /evidence-data exposes result content and discovered figures."""
+    resp = client.get("/evidence-data")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is True
+    assert body["results"]["config"]["region"] == shared_state.config.region.name
+    assert body["figures"]
+    figure = client.get(f"/evidence-figure/{body['figures'][0]}")
+    assert figure.status_code == 200
+
+
 def test_post_route_success_and_latency(
     client: TestClient,
     shared_state: ServiceState,

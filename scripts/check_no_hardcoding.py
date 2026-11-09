@@ -30,6 +30,15 @@ ALLOWED_MATHEMATICAL_FLOATS = {0.0, 0.5, 1.0, 2.0, 100.0, 1000.0}
 ISO_DATE_RE = re.compile(r"\b(19|20)\d{2}-\d{2}-\d{2}\b")
 FLOAT_LITERAL_RE = re.compile(r"(?<![A-Za-z0-9_])[-+]?\d+\.\d+(?![A-Za-z0-9_])")
 EM_EN_DASH_RE = re.compile(r"[\u2013\u2014]")
+# Coordinate-like literals that the float check misses, for example integer
+# coordinates in frontend code: `lat: 7`, `lon = -3`, `center: [6, 7]`.
+COORD_KEY_RE = re.compile(
+    r"""(?<![A-Za-z0-9_])["']?(lat|lon|lng|latitude|longitude)["']?\s*[:=]\s*[-+]?\d""",
+    re.IGNORECASE,
+)
+COORD_ARRAY_RE = re.compile(
+    r"""(?<![A-Za-z0-9_])["']?(center|bbox|bounds|maxBounds)["']?\s*[:=(]\s*\[\s*\[?\s*[-+]?\d""",
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +123,16 @@ def scan_text_for_violations(
                 )
 
         if check_floats_and_dates:
+            coord_match = COORD_KEY_RE.search(line) or COORD_ARRAY_RE.search(line)
+            if coord_match:
+                violations.append(
+                    Violation(
+                        file_path=path_str,
+                        line=idx,
+                        rule="COORDINATE_LITERAL",
+                        detail=f"Found coordinate-like literal '{coord_match.group(0)}'.",
+                    )
+                )
             date_match = ISO_DATE_RE.search(line)
             if date_match:
                 violations.append(

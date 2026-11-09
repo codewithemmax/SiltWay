@@ -401,6 +401,17 @@ def validate_rain_index(rain_df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def edges_bbox(edges_df: pd.DataFrame) -> list[float]:
+    """Return [min_lon, min_lat, max_lon, max_lat] of edge geometries (rainfall grid extent)."""
+    bounds_arr = shapely.bounds(edges_df["geometry"].to_numpy())
+    return [
+        float(np.min(bounds_arr[:, 0])),
+        float(np.min(bounds_arr[:, 1])),
+        float(np.max(bounds_arr[:, 2])),
+        float(np.max(bounds_arr[:, 3])),
+    ]
+
+
 def get_or_compute_rain_index(
     config: AppConfig,
     edges_df: pd.DataFrame,
@@ -422,13 +433,7 @@ def get_or_compute_rain_index(
             validate_rain_index(cached_df)
             return cached_df
 
-    bounds_arr = shapely.bounds(edges_df["geometry"].to_numpy())
-    bbox = [
-        float(np.min(bounds_arr[:, 0])),
-        float(np.min(bounds_arr[:, 1])),
-        float(np.max(bounds_arr[:, 2])),
-        float(np.max(bounds_arr[:, 3])),
-    ]
+    bbox = edges_bbox(edges_df)
     date_range = compute_climatology_date_range(
         as_of=resolved_as_of,
         window_days=config.rainfall.window_days,
@@ -457,6 +462,127 @@ def get_or_compute_rain_index(
     processed_dir.mkdir(parents=True, exist_ok=True)
     rain_df.to_parquet(cache_parquet, index=False)
     return rain_df
+
+
+SUPPORTED_AS_OF_RULES: dict[str, str] = {
+    "regional_mean_rain_idx_extremes": "rain_idx",
+    "regional_mean_recent_mm_extremes": "recent_mm",
+}
+
+
+def candidate_as_of_dates(start_date: str, end_date: str, step_days: int) -> list[str]:
+    """Return ISO dates from start_date to end_date inclusive, stepped by step_days."""
+    if step_days <= 0:
+        raise ValueError("step_days must be positive.")
+    start_dt = _parse_iso_date(start_date)
+    end_dt = _parse_iso_date(end_date)
+    if start_dt > end_dt:
+        raise ValueError(f"start_date {start_date} is after end_date {end_date}.")
+    out: list[str] = []
+    cur = start_dt
+    while cur <= end_dt:
+        out.append(cur.strftime("%Y-%m-%d"))
+        cur += timedelta(days=step_days)
+    return out
+
+
+def select_wet_dry_dates(
+    grid: list[dict[str, Any]],
+    candidates: list[str],
+    window_days: int,
+    climatology_years: int,
+    scale_percentile: float,
+    eps: float,
+    metric: str = "rain_idx",
+) -> dict[str, Any]:
+    """Pick the candidates with the highest and lowest regional mean of metric.
+
+    metric is a per-cell column of rain_index output ("rain_idx" or "recent_mm").
+    Regional mean is the unweighted mean over grid cells. Ties go to the earliest
+    candidate date. Both regional means are reported for each picked date.
+    """
+    if not candidates:
+        raise ValueError("At least one candidate date is required.")
+    scored: list[dict[str, Any]] = []
+    for cand in sorted(candidates):
+        cells = rain_index(
+            grid=grid,
+            as_of=cand,
+            window_days=window_days,
+            climatology_years=climatology_years,
+            scale_percentile=scale_percentile,
+            eps=eps,
+        )
+        if metric not in cells.columns:
+            raise ValueError(f"Unknown rainfall metric '{metric}'.")
+        scored.append(
+            {
+                "as_of": cand,
+                "score": float(cells[metric].mean()),
+                "mean_rain_idx": float(cells["rain_idx"].mean()),
+                "mean_recent_mm": float(cells["recent_mm"].mean()),
+            }
+        )
+
+    wet = scored[0]
+    dry = scored[0]
+    for row in scored[1:]:
+        if row["score"] > wet["score"]:
+            wet = row
+        if row["score"] < dry["score"]:
+            dry = row
+    keys = ("as_of", "mean_rain_idx", "mean_recent_mm")
+    return {
+        "metric": metric,
+        "wet": {k: wet[k] for k in keys},
+        "dry": {k: dry[k] for k in keys},
+        "n_candidates": len(scored),
+    }
+
+
+def select_as_of_options(
+    config: AppConfig,
+    bbox: list[float],
+) -> dict[str, Any]:
+    """Apply config.ui.as_of_selection to the cached rainfall grid and return wet and dry dates."""
+    rule = config.ui.as_of_selection
+    if rule.rule_id not in SUPPORTED_AS_OF_RULES:
+        raise ValueError(
+            f"Unsupported as_of selection rule '{rule.rule_id}'; "
+            f"supported: {list(SUPPORTED_AS_OF_RULES)}."
+        )
+    metric = SUPPORTED_AS_OF_RULES[rule.rule_id]
+    candidates = candidate_as_of_dates(rule.start_date, rule.end_date, rule.step_days)
+    earliest_start, _ = compute_climatology_date_range(
+        as_of=candidates[0],
+        window_days=config.rainfall.window_days,
+        climatology_years=config.rainfall.climatology_years,
+    )
+    grid = fetch_grid(
+        bbox=bbox,
+        step=config.rainfall.grid_step_deg,
+        date_range=(earliest_start, candidates[-1]),
+        cache_dir=config.datasets.rainfall.raw_cache_dir,
+        api_base_url=config.datasets.rainfall.api_base_url,
+        parameter=config.datasets.rainfall.parameter,
+    )
+    picked = select_wet_dry_dates(
+        grid=grid,
+        candidates=candidates,
+        window_days=config.rainfall.window_days,
+        climatology_years=config.rainfall.climatology_years,
+        scale_percentile=config.rainfall.scale_percentile,
+        eps=config.rainfall.eps,
+        metric=metric,
+    )
+    return {
+        "rule_id": rule.rule_id,
+        "rule": rule.description,
+        "start_date": rule.start_date,
+        "end_date": rule.end_date,
+        "step_days": rule.step_days,
+        **picked,
+    }
 
 
 def attach_rain_index_to_graph(graph: nx.Graph, rain_df: pd.DataFrame) -> nx.Graph:
