@@ -1,0 +1,54 @@
+{
+  "datasets": [
+    {
+      "file_name": "FL20221019NGA_SHP.zip",
+      "row_count": 1160,
+      "checksum": "b701fdd819f2412c26e81f25213a5330561ca2a2dbcdc2762bf806530b099145",
+      "source_url": "https://data.humdata.org/dataset/7d978dcf-afa9-454e-8eaa-d9e54458f44e",
+      "access_date": "2026-11-08",
+      "license": "CC BY-IGO",
+      "dataset_key": "flood_2022",
+      "version": null
+    },
+    {
+      "file_name": "national-roads-esri-shapefile.zip",
+      "row_count": 701169,
+      "checksum": "d109feddc53b538122436f5363a526223d410af2397930dfd28d4889ec0c3749",
+      "source_url": "https://data.humdata.org/dataset/fa359dc7-c3e4-4ed9-9d51-0bf609c20e06",
+      "access_date": "2026-11-08",
+      "license": "CC BY 4.0",
+      "dataset_key": "roads",
+      "version": null
+    },
+    {
+      "file_name": "nga-floods-2012-shp.zip",
+      "row_count": 1,
+      "checksum": "75d0907b590786f67d8d0ce2b414f1ffaa89c59ea7c170b2abb6dd2d041bd5ed",
+      "source_url": "https://data.humdata.org/dataset/bd3b4ef6-0a96-4346-b229-2c410d9c6c6d",
+      "access_date": "2026-11-08",
+      "license": "CC BY-IGO",
+      "dataset_key": "flood_2012",
+      "version": null
+    },
+    {
+      "file_name": "nga_admin_boundaries.shp.zip",
+      "row_count": 13965,
+      "checksum": "4600b159107bbb5069cecbe2e308310deb8a3c0e0d83e05939c254dfae4d0361",
+      "source_url": "https://data.humdata.org/dataset/cod-ab-nga",
+      "access_date": "2026-11-08",
+      "license": "CC BY-IGO",
+      "dataset_key": "boundaries",
+      "version": null
+    },
+    {
+      "file_name": "power",
+      "row_count": 30,
+      "checksum": "6b6e128b90d9610de9b807cfaf6f63bbaed4b1e098d16e42661f77e03572d734",
+      "source_url": "https://power.larc.nasa.gov/docs/services/api/",
+      "access_date": "2026-11-09",
+      "license": "NASA Open Data Policy",
+      "dataset_key": "rainfall",
+      "version": null
+    }
+  ]
+}
